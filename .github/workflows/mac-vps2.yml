@@ -19,31 +19,28 @@ jobs:
           sleep 5
           sudo tailscale up --authkey=$TAILSCALE_AUTHKEY --hostname=github-mac-runner
 
-      - name: Enable macOS Remote Management (VNC)
+      - name: Setup Web VNC (noVNC)
         run: |
-          # Set system user password
+          brew install websockify
+          brew install tiger-vnc-server
+
+          # macOS VNC Enable
           sudo dscl . -passwd /Users/runner vncpass
-          sudo dscl . -passwd /Users/runneradmin vncpass 2>/dev/null || true
-
-          # Set legacy VNC password for non-Apple VNC clients (Remmina / SSVNC / TigerVNC)
-          sudo defaults write /Library/Preferences/com.apple.VNCSettings.txt VNCPassword -string "vncpass"
-
-          # Configure ARDAgent VNC for runner user
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
-            -activate -configure -access -on \
-            -client_configure -allowAccessFor -allUsers \
-            -privs -all
+            -activate -configure -access -on -client_configure -allowAccessFor -allUsers -privs -all -vnclegacy yes
 
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
-            -configure -access -on -vnclegacy yes -client_configure -vnclegacy yes \
-            -restart -agent
+          # Download & extract noVNC web interface
+          git clone https://github.com/novnc/noVNC.git ~/novnc
+
+          # Run websockify bridge on port 6080
+          nohup ~/novnc/utils/novnc_proxy --vnc localhost:5900 --listen 6080 > /dev/null 2>&1 &
+          sleep 3
 
       - name: Keep Runner Alive
         run: |
           echo "=========================================="
-          echo "macOS Active on Tailscale!"
-          echo "Connect via VNC using Tailscale IP or 'github-mac-runner'"
-          echo "Username: runner"
+          echo "macOS Active! Access via Browser:"
+          echo "http://100.71.131.33:6080/vnc.html"
           echo "Password: vncpass"
           echo "=========================================="
           sleep 21600
