@@ -19,7 +19,27 @@ jobs:
           sleep 5
           sudo tailscale up --authkey=$TAILSCALE_AUTHKEY --hostname=github-mac-runner
 
-      - name: Setup Tmate SSH & Web Terminal Access
-        uses: mxschmitt/action-tmate@v3
-        with:
-          limit-access-to-actor: false
+      - name: Install Custom VNC Engine (Bypass Apple MDM)
+        run: |
+          # Install TigerVNC server binary on macOS via brew
+          brew install tiger-vnc
+
+          # Create VNC configuration directory
+          mkdir -p ~/.vnc
+
+          # Set VNC password directly to file (bypasses macOS system auth)
+          echo "vncpass" | vncpasswd -f > ~/.vnc/passwd
+          chmod 600 ~/.vnc/passwd
+
+          # Launch TigerVNC server on display :1 (Port 5901)
+          vncserver :1 -geometry 1280x800 -depth 24 -rfbauth ~/.vnc/passwd
+
+      - name: Keep Runner Alive
+        run: |
+          echo "=========================================="
+          echo "macOS Custom VNC Running!"
+          echo "Connect directly via VNC (No SSH needed!):"
+          echo "IP: 100.x.x.x:5901 (Port 5901)"
+          echo "Password: vncpass"
+          echo "=========================================="
+          sleep 21600
