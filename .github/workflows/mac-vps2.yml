@@ -19,27 +19,7 @@ jobs:
           sleep 5
           sudo tailscale up --authkey=$TAILSCALE_AUTHKEY --hostname=github-mac-runner
 
-      - name: Create Remote Admin User & Enable SSH/VNC
-        run: |
-          # Create dedicated admin user 'macuser' with password 'vncpass'
-          sudo sysadminctl -addUser macuser -fullName "Mac User" -password "vncpass" -admin
-
-          # Enable SSH Remote Login
-          sudo systemsetup -setremotelogin on
-
-          # Enable macOS VNC Remote Management for macuser
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
-            -activate -configure -access -on \
-            -client_configure -allowAccessFor -allUsers \
-            -privs -all -vnclegacy yes
-
-          # Set Legacy VNC Password
-          sudo defaults write /Library/Preferences/com.apple.VNCSettings.txt VNCPassword -string "vncpass"
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -restart -agent
-
-      - name: Keep Runner Alive
-        run: |
-          echo "=========================================="
-          echo "macOS Active! Connect with user 'macuser'"
-          echo "=========================================="
-          sleep 21600
+      - name: Setup Tmate SSH & Web Terminal Access
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: false
