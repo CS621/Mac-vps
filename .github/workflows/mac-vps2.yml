@@ -1,0 +1,33 @@
+name: macOS Cloud Remote Environment
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install & Setup Tailscale
+        env:
+          TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
+        run: |
+          brew install tailscale
+          sudo tailscaled --state=mem: &
+          sleep 5
+          sudo tailscale up --authkey=$TAILSCALE_AUTHKEY --hostname=github-mac-runner
+
+      - name: Enable macOS Screen Sharing (VNC / RDP)
+        run: |
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -access -on -client_configure -allowAccessFor -allUsers -privs -all
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -restart -agent
+
+      - name: Keep Runner Alive
+        run: |
+          echo "=========================================="
+          echo "macOS Active on Tailscale!"
+          echo "Connect via VNC using Tailscale IP or 'github-mac-runner'"
+          echo "=========================================="
+          sleep 21600
