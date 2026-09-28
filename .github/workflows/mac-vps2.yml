@@ -19,15 +19,31 @@ jobs:
           sleep 5
           sudo tailscale up --authkey=$TAILSCALE_AUTHKEY --hostname=github-mac-runner
 
-      - name: Enable macOS Screen Sharing (VNC / RDP)
+      - name: Enable macOS Remote Management (VNC)
         run: |
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -access -on -client_configure -allowAccessFor -allUsers -privs -all
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -restart -agent
+          # Set system user password
+          sudo dscl . -passwd /Users/runner vncpass
+          sudo dscl . -passwd /Users/runneradmin vncpass 2>/dev/null || true
+
+          # Set legacy VNC password for non-Apple VNC clients (Remmina / SSVNC / TigerVNC)
+          sudo defaults write /Library/Preferences/com.apple.VNCSettings.txt VNCPassword -string "vncpass"
+
+          # Configure ARDAgent VNC for runner user
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+            -activate -configure -access -on \
+            -client_configure -allowAccessFor -allUsers \
+            -privs -all
+
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+            -configure -access -on -vnclegacy yes -client_configure -vnclegacy yes \
+            -restart -agent
 
       - name: Keep Runner Alive
         run: |
           echo "=========================================="
           echo "macOS Active on Tailscale!"
           echo "Connect via VNC using Tailscale IP or 'github-mac-runner'"
+          echo "Username: runner"
+          echo "Password: vncpass"
           echo "=========================================="
           sleep 21600
