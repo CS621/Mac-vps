@@ -19,26 +19,35 @@ jobs:
           sleep 5
           sudo tailscale up --authkey=$TAILSCALE_AUTHKEY --hostname=github-mac-runner
 
-      - name: Setup SSH Public Key Authentication
+      - name: Force SSH Key Auth & Fix Permissions
         run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
+          # 1. Setup runner user .ssh
+          mkdir -p /Users/runner/.ssh
+          echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMGxA9CFvuRQYwiEg1TnzwgnS3lHSgU6e4ozIrgL7lE9 root@Samsung" > /Users/runner/.ssh/authorized_keys
           
-          # Injecting Fossapup public key
-          echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMGxA9CFvuRQYwiEg1TnzwgnS3lHSgU6e4ozIrgL7lE9 root@Samsung" >> ~/.ssh/authorized_keys
-          
-          chmod 600 ~/.ssh/authorized_keys
+          # Fix strict macOS permissions for SSH
+          sudo chown -R runner:staff /Users/runner/.ssh
+          chmod 700 /Users/runner/.ssh
+          chmod 600 /Users/runner/.ssh/authorized_keys
 
-          # Enable SSH Remote Login
+          # 2. Patch macOS sshd_config to FORCE Public Key Auth
+          sudo sed -i '' 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/g' /etc/ssh/sshd_config
+          sudo sed -i '' 's/PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config
+          echo "StrictModes no" | sudo tee -a /etc/ssh/sshd_config
+          echo "PubkeyAuthentication yes" | sudo tee -a /etc/ssh/sshd_config
+
+          # 3. Enable SSH and Restart Daemon
           sudo systemsetup -setremotelogin on
+          sudo launchctl unload /System/Library/LaunchDaemons/ssh.plist 2>/dev/null || true
+          sudo launchctl load -w /System/Library/LaunchDaemons/ssh.plist
 
-          # Enable VNC Remote Management
+          # 4. Enable VNC
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -activate -configure -access -on -privs -all
 
       - name: Keep Runner Alive
         run: |
           echo "=========================================="
-          echo "macOS SSH Key Auth Ready!"
+          echo "SSH Forced Key Authentication Configured!"
           echo "=========================================="
           sleep 21600
