@@ -19,27 +19,26 @@ jobs:
           sleep 5
           sudo tailscale up --authkey=$TAILSCALE_AUTHKEY --hostname=github-mac-runner
 
-      - name: Install Custom VNC Engine (Bypass Apple MDM)
+      - name: Setup SSH Public Key Authentication
         run: |
-          # Install TigerVNC server binary on macOS via brew
-          brew install tiger-vnc
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          
+          # Injecting Fossapup public key
+          echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMGxA9CFvuRQYwiEg1TnzwgnS3lHSgU6e4ozIrgL7lE9 root@Samsung" >> ~/.ssh/authorized_keys
+          
+          chmod 600 ~/.ssh/authorized_keys
 
-          # Create VNC configuration directory
-          mkdir -p ~/.vnc
+          # Enable SSH Remote Login
+          sudo systemsetup -setremotelogin on
 
-          # Set VNC password directly to file (bypasses macOS system auth)
-          echo "vncpass" | vncpasswd -f > ~/.vnc/passwd
-          chmod 600 ~/.vnc/passwd
-
-          # Launch TigerVNC server on display :1 (Port 5901)
-          vncserver :1 -geometry 1280x800 -depth 24 -rfbauth ~/.vnc/passwd
+          # Enable VNC Remote Management
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+            -activate -configure -access -on -privs -all
 
       - name: Keep Runner Alive
         run: |
           echo "=========================================="
-          echo "macOS Custom VNC Running!"
-          echo "Connect directly via VNC (No SSH needed!):"
-          echo "IP: 100.x.x.x:5901 (Port 5901)"
-          echo "Password: vncpass"
+          echo "macOS SSH Key Auth Ready!"
           echo "=========================================="
           sleep 21600
