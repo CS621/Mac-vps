@@ -19,28 +19,27 @@ jobs:
           sleep 5
           sudo tailscale up --authkey=$TAILSCALE_AUTHKEY --hostname=github-mac-runner
 
-      - name: Setup Web VNC (noVNC)
+      - name: Create Remote Admin User & Enable SSH/VNC
         run: |
-          brew install websockify
-          brew install tiger-vnc-server
+          # Create dedicated admin user 'macuser' with password 'vncpass'
+          sudo sysadminctl -addUser macuser -fullName "Mac User" -password "vncpass" -admin
 
-          # macOS VNC Enable
-          sudo dscl . -passwd /Users/runner vncpass
+          # Enable SSH Remote Login
+          sudo systemsetup -setremotelogin on
+
+          # Enable macOS VNC Remote Management for macuser
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
-            -activate -configure -access -on -client_configure -allowAccessFor -allUsers -privs -all -vnclegacy yes
+            -activate -configure -access -on \
+            -client_configure -allowAccessFor -allUsers \
+            -privs -all -vnclegacy yes
 
-          # Download & extract noVNC web interface
-          git clone https://github.com/novnc/noVNC.git ~/novnc
-
-          # Run websockify bridge on port 6080
-          nohup ~/novnc/utils/novnc_proxy --vnc localhost:5900 --listen 6080 > /dev/null 2>&1 &
-          sleep 3
+          # Set Legacy VNC Password
+          sudo defaults write /Library/Preferences/com.apple.VNCSettings.txt VNCPassword -string "vncpass"
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -restart -agent
 
       - name: Keep Runner Alive
         run: |
           echo "=========================================="
-          echo "macOS Active! Access via Browser:"
-          echo "http://100.71.131.33:6080/vnc.html"
-          echo "Password: vncpass"
+          echo "macOS Active! Connect with user 'macuser'"
           echo "=========================================="
           sleep 21600
